@@ -34,7 +34,13 @@ uv run python cs336_systems/benchmarking_script.py \
     --output results.json
 ```
 
-Note: All arguments are required. The `--model_size` is just a label for the output JSON.
+**Forward-only mode** (skip backward pass):
+```bash
+# Add --forward_only flag to benchmark only the forward pass
+uv run python cs336_systems/benchmarking_script.py [args...] --forward_only
+```
+
+Note: All arguments are required except `--forward_only`. The `--model_size` is just a label for the output JSON.
 
 ### 2. Local Parameter Sweep
 
@@ -53,25 +59,30 @@ This will benchmark all combinations of:
 Edit `sweep_local.sh` to modify:
 
 ```bash
-# Model configurations (lines 17-22)
-MODEL_CONFIGS[small]="256 1024 4 4"     # d_model d_ff num_layers num_heads
-MODEL_CONFIGS[medium]="512 2048 8 8"
-MODEL_CONFIGS[large]="768 3072 12 12"
-MODEL_CONFIGS[xl]="1024 4096 24 16"
-MODEL_CONFIGS[2_7B]="2560 10240 32 32"
+# Model configurations (function get_model_config, lines 18-32)
+get_model_config() {
+    case $1 in
+        small)   echo "768 3072 12 12" ;;      # d_model d_ff num_layers num_heads
+        medium)  echo "1024 4096 24 16" ;;
+        large)   echo "1280 5120 36 20" ;;
+        xl)      echo "1600 6400 48 25" ;;
+        2.7B)    echo "2560 10240 32 32" ;;
+    esac
+}
 
-# Which sizes to sweep (line 34)
+# Which sizes to sweep (line ~44)
 MODEL_SIZES=(small medium large)
 
-# Which context lengths to sweep (line 35)
+# Which context lengths to sweep (line ~45)
 CONTEXT_LENGTHS=(128 256 512)
 
-# Fixed parameters (lines 10-14)
+# Fixed parameters (lines 10-15)
 VOCAB=10000
-NUM_WARMUPS=2
-NUM_TRIALS=5
-NUM_STEPS=10
-BATCH_SIZE=8
+NUM_WARMUPS=5
+NUM_TRIALS=10
+NUM_STEPS=1
+BATCH_SIZE=4
+# FORWARD_ONLY=1  # Uncomment to enable forward-only mode
 ```
 
 The script runs sequentially and saves each result to `results/bench_{model}_{context}.json`
@@ -97,13 +108,13 @@ Model configurations are defined in `sweep_local.sh`:
 
 | Size  | d_model | d_ff  | num_layers | num_heads |
 |-------|---------|-------|------------|-----------|
-| small | 256     | 1024  | 4          | 4         |
-| medium| 512     | 2048  | 8          | 8         |
-| large | 768     | 3072  | 12         | 12        |
-| xl    | 1024    | 4096  | 24         | 16        |
-| 2_7B  | 2560    | 10240 | 32         | 32        |
+| small | 768     | 3072  | 12         | 12        |
+| medium| 1024    | 4096  | 24         | 16        |
+| large | 1280    | 5120  | 36         | 20        |
+| xl    | 1600    | 6400  | 48         | 25        |
+| 2.7B  | 2560    | 10240 | 32         | 32        |
 
-To add or modify configurations, edit the `MODEL_CONFIGS` associative array in `sweep_local.sh` (lines 17-22).
+To add or modify configurations, edit the `get_model_config()` function in `sweep_local.sh` (lines 18-32).
 
 ## Output Format
 
@@ -114,16 +125,18 @@ To add or modify configurations, edit the `MODEL_CONFIGS` associative array in `
   "model_size": "medium",
   "vocab": 10000,
   "context_length": 256,
-  "d_model": 512,
-  "d_ff": 2048,
-  "num_layers": 8,
-  "num_heads": 8,
-  "batch_size": 8,
-  "num_steps": 10,
-  "num_warmups": 2,
-  "num_trials": 5,
-  "trial_times_ms": [123.45, 124.32, 123.89, 124.01, 123.67],
-  "mean_time_ms": 123.87,
+  "d_model": 1024,
+  "d_ff": 4096,
+  "num_layers": 24,
+  "num_heads": 16,
+  "batch_size": 4,
+  "num_steps": 1,
+  "num_warmups": 5,
+  "num_trials": 10,
+  "forward_only": false,
+  "trial_times_ms": [123.45, 124.32, 123.89, 124.01, 123.67, 123.55, 124.11, 123.78, 124.22, 123.91],
+  "mean_time_ms": 123.89,
+  "std_time_ms": 0.28,
   "device": "cuda:0"
 }
 ```
@@ -135,11 +148,24 @@ The aggregation script generates tables like:
 ```markdown
 ## Complete Results
 
-| d_model | context_length | num_layers | num_heads | batch_size | mean_time_ms | std_time_ms |
-|---------|----------------|------------|-----------|------------|--------------|-------------|
-| 256     | 128            | 4          | 4         | 8          | 45.23        | 1.2         |
-| 512     | 256            | 8          | 8         | 8          | 178.45       | 3.2         |
+| model_size | d_model | context_length | num_layers | num_heads | batch_size | forward_only | mean_time_ms | std_time_ms |
+|------------|---------|----------------|------------|-----------|------------|--------------|--------------|-------------|
+| small      | 768     | 128            | 12         | 12        | 4          | False        | 145.23       | 1.2         |
+| small      | 256     | 128            | 12         | 12        | 4          | False        | 278.45       | 2.1         |
+| medium     | 1024    | 128            | 24         | 16        | 4          | False        | 512.31       | 3.5         |
 ...
+
+## Results by Model Size
+
+### Model: small
+| context_length | mean_time_ms | std_time_ms |
+|----------------|--------------|-------------|
+| 128            | 145.23       | 1.2         |
+| 256            | 278.45       | 2.1         |
+...
+
+## Forward-Only vs Forward+Backward Comparison
+(Shows this section if both forward_only=True and forward_only=False results exist)
 ```
 
 ## Customization Tips
@@ -149,11 +175,27 @@ The aggregation script generates tables like:
 Edit `sweep_local.sh` to add a new model size:
 
 ```bash
-# Add your custom config
-MODEL_CONFIGS[custom]="384 1536 6 6"  # d_model=384, d_ff=1536, layers=6, heads=6
+# In the get_model_config() function, add your custom config
+get_model_config() {
+    case $1 in
+        small)   echo "768 3072 12 12" ;;
+        custom)  echo "384 1536 6 6" ;;   # Add your config here
+        medium)  echo "1024 4096 24 16" ;;
+        # ... rest of configs
+    esac
+}
 
 # Include it in the sweep
 MODEL_SIZES=(small custom large)
+```
+
+### Enable Forward-Only Mode
+
+To benchmark only forward passes (skip backward):
+
+```bash
+# In sweep_local.sh, uncomment this line (around line 15):
+FORWARD_ONLY=1
 ```
 
 ### Sweep Over Different Parameters
@@ -168,6 +210,14 @@ for batch_size in "${BATCH_SIZES[@]}"; do
 done
 ```
 
+### Timing and Statistics
+
+The benchmarking script uses:
+- **Timer**: `timeit.default_timer()` for high-resolution timing
+- **Statistics**: Computes mean and standard deviation across trials
+- **Warmup runs**: Avoids cold-start timing issues
+- **CUDA synchronization**: Ensures accurate GPU timing
+
 ### Custom Aggregation
 
 Modify `aggregate_results.py` to add custom analysis:
@@ -176,6 +226,10 @@ Modify `aggregate_results.py` to add custom analysis:
 # Add custom metrics
 df['params'] = df['d_model'] * df['num_layers']  # Approx total params
 df['throughput'] = 1000 / df['mean_time_ms']     # Items/sec
+
+# Filter by forward_only
+forward_only_df = df[df['forward_only'] == True]
+forward_backward_df = df[df['forward_only'] == False]
 
 # Custom pivot tables
 pivot = df.pivot_table(

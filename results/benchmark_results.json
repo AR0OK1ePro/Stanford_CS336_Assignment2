@@ -1,0 +1,22 @@
+{
+  "model_size": "small",
+  "vocab": 10000,
+  "context_length": 128,
+  "d_model": 64,
+  "d_ff": 256,
+  "num_layers": 6,
+  "num_heads": 2,
+  "batch_size": 4,
+  "num_steps": 1,
+  "num_warmups": 3,
+  "num_trials": 5,
+  "trial_times_ms": [
+    25.35700798034668,
+    28.203964233398438,
+    25.098085403442383,
+    25.356769561767578,
+    25.01392364501953
+  ],
+  "mean_time_ms": 25.805950164794922,
+  "device": "mps"
+}
