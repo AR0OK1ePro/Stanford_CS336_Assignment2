@@ -18,7 +18,7 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
     device = get_device()
     model = models.BasicsTransformerLM(vocab, context_length, d_model, num_layers, num_heads, d_ff, rope_theta).to(device)
     # Define an input (random)
-    x, y  = get_batch(dataset, batch_size, context_length, device)
+    x, y  = get_batch(dataset, batch_size, context_length, str(device))
 
     if forward_only:
         def run():

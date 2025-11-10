@@ -12,7 +12,10 @@ NUM_WARMUPS=5
 NUM_TRIALS=10
 NUM_STEPS=1
 BATCH_SIZE=4
-# FORWARD_ONLY=1  # Uncomment to enable forward-only mode
+
+# Run modes - set to 1 to enable
+RUN_FORWARD_ONLY=1      # Run forward-only benchmarks
+RUN_FORWARD_BACKWARD=1  # Run forward+backward benchmarks
 
 # Function to get model config
 get_model_config() {
@@ -45,7 +48,11 @@ echo ""
 MODEL_SIZES=(small medium large xl 2.7B)
 CONTEXT_LENGTHS=(128 256)
 
-total_runs=$((${#MODEL_SIZES[@]} * ${#CONTEXT_LENGTHS[@]}))
+# Calculate total runs based on enabled modes
+num_modes=0
+[ "$RUN_FORWARD_ONLY" = "1" ] && num_modes=$((num_modes + 1))
+[ "$RUN_FORWARD_BACKWARD" = "1" ] && num_modes=$((num_modes + 1))
+total_runs=$((${#MODEL_SIZES[@]} * ${#CONTEXT_LENGTHS[@]} * num_modes))
 current_run=0
 
 # Sweep over model sizes and context lengths
@@ -54,34 +61,71 @@ for model_size in "${MODEL_SIZES[@]}"; do
     read -r d_model d_ff num_layers num_heads <<< "$(get_model_config $model_size)"
 
     for context_length in "${CONTEXT_LENGTHS[@]}"; do
-        current_run=$((current_run + 1))
 
-        echo "----------------------------------------"
-        echo "Run $current_run/$total_runs"
-        echo "Model: $model_size (d_model=$d_model, layers=$num_layers)"
-        echo "Context: $context_length"
-        echo "----------------------------------------"
+        # Run forward-only mode if enabled
+        if [ "$RUN_FORWARD_ONLY" = "1" ]; then
+            current_run=$((current_run + 1))
 
-        output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}.json"
+            echo "----------------------------------------"
+            echo "Run $current_run/$total_runs"
+            echo "Model: $model_size (d_model=$d_model, layers=$num_layers)"
+            echo "Context: $context_length"
+            echo "Mode: Forward only"
+            echo "----------------------------------------"
 
-        uv run python cs336_systems/benchmarking_script.py \
-            --model_size "$model_size" \
-            --vocab "$VOCAB" \
-            --context_length "$context_length" \
-            --d_model "$d_model" \
-            --d_ff "$d_ff" \
-            --num_layers "$num_layers" \
-            --num_heads "$num_heads" \
-            --batch_size "$BATCH_SIZE" \
-            --num_steps "$NUM_STEPS" \
-            --num_warmups "$NUM_WARMUPS" \
-            --num_trials "$NUM_TRIALS" \
-            --data_path "$DATA_PATH" \
-            --output "$output_file" \
-            ${FORWARD_ONLY:+--forward_only}
+            output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd.json"
 
-        echo "✓ Saved to $output_file"
-        echo ""
+            uv run python cs336_systems/benchmarking_script.py \
+                --model_size "$model_size" \
+                --vocab "$VOCAB" \
+                --context_length "$context_length" \
+                --d_model "$d_model" \
+                --d_ff "$d_ff" \
+                --num_layers "$num_layers" \
+                --num_heads "$num_heads" \
+                --batch_size "$BATCH_SIZE" \
+                --num_steps "$NUM_STEPS" \
+                --num_warmups "$NUM_WARMUPS" \
+                --num_trials "$NUM_TRIALS" \
+                --data_path "$DATA_PATH" \
+                --output "$output_file" \
+                --forward_only
+
+            echo "✓ Saved to $output_file"
+            echo ""
+        fi
+
+        # Run forward+backward mode if enabled
+        if [ "$RUN_FORWARD_BACKWARD" = "1" ]; then
+            current_run=$((current_run + 1))
+
+            echo "----------------------------------------"
+            echo "Run $current_run/$total_runs"
+            echo "Model: $model_size (d_model=$d_model, layers=$num_layers)"
+            echo "Context: $context_length"
+            echo "Mode: Forward + Backward"
+            echo "----------------------------------------"
+
+            output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_bwd.json"
+
+            uv run python cs336_systems/benchmarking_script.py \
+                --model_size "$model_size" \
+                --vocab "$VOCAB" \
+                --context_length "$context_length" \
+                --d_model "$d_model" \
+                --d_ff "$d_ff" \
+                --num_layers "$num_layers" \
+                --num_heads "$num_heads" \
+                --batch_size "$BATCH_SIZE" \
+                --num_steps "$NUM_STEPS" \
+                --num_warmups "$NUM_WARMUPS" \
+                --num_trials "$NUM_TRIALS" \
+                --data_path "$DATA_PATH" \
+                --output "$output_file"
+
+            echo "✓ Saved to $output_file"
+            echo ""
+        fi
     done
 done
 

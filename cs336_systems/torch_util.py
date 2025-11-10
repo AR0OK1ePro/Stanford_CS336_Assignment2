@@ -3,7 +3,7 @@ import math
 
 def get_device():
     if torch.cuda.is_available():
-        return "cuda"
+        return torch.device("cuda")
     elif torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
+        return torch.device("mps")
+    return torch.device("cpu")
