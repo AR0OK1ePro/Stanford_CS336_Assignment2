@@ -73,7 +73,7 @@ for model_size in "${MODEL_SIZES[@]}"; do
             echo "Mode: Forward only"
             echo "----------------------------------------"
 
-            output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd.json"
+            output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_warmup${NUM_WARMUPS}.json"
 
             uv run python cs336_systems/benchmarking_script.py \
                 --model_size "$model_size" \
@@ -106,7 +106,7 @@ for model_size in "${MODEL_SIZES[@]}"; do
             echo "Mode: Forward + Backward"
             echo "----------------------------------------"
 
-            output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_bwd.json"
+            output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_bwd_warmup${NUM_WARMUPS}.json"
 
             uv run python cs336_systems/benchmarking_script.py \
                 --model_size "$model_size" \

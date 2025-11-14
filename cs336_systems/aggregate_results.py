@@ -53,6 +53,8 @@ def create_summary_dataframe(results: List[Dict[str, Any]]) -> pd.DataFrame:
             'num_heads': r.get('num_heads'),
             'batch_size': r.get('batch_size'),
             'num_steps': r.get('num_steps'),
+            'num_warmups': r.get('num_warmups'),
+            'num_trials': r.get('num_trials'),
             'forward_only': r.get('forward_only', False),
             'mean_time_ms': r.get('mean_time_ms'),
             'std_time_ms': r.get('std_time_ms'),
@@ -72,9 +74,9 @@ def create_summary_dataframe(results: List[Dict[str, Any]]) -> pd.DataFrame:
 
     df = pd.DataFrame(df_data)
 
-    # Sort by model size, context length, and layers
+    # Sort by model_size, context_length, num_warmups, and forward_only
     if not df.empty:
-        sort_cols = ['d_model', 'context_length', 'num_layers']
+        sort_cols = ['d_model', 'context_length', 'num_warmups', 'forward_only']
         existing_cols = [c for c in sort_cols if c in df.columns]
         if existing_cols:
             df = df.sort_values(existing_cols)
@@ -96,7 +98,7 @@ def generate_markdown_tables(df: pd.DataFrame, output_file: Path):
 
         # Select columns for display
         display_cols = ['model_size', 'd_model', 'context_length', 'num_layers', 'num_heads',
-                       'batch_size', 'forward_only', 'mean_time_ms', 'std_time_ms']
+                       'batch_size', 'num_warmups', 'num_trials', 'forward_only', 'mean_time_ms', 'std_time_ms']
 
         available_cols = [c for c in display_cols if c in df.columns]
         display_df = df[available_cols].copy()
@@ -118,7 +120,9 @@ def generate_markdown_tables(df: pd.DataFrame, output_file: Path):
 
                 if 'context_length' in subset.columns and 'mean_time_ms' in subset.columns:
                     # Simple table grouped by context length
-                    summary = subset[['context_length', 'mean_time_ms', 'std_time_ms']].copy()
+                    summary_cols = ['context_length', 'num_warmups', 'forward_only', 'mean_time_ms', 'std_time_ms']
+                    available_summary_cols = [c for c in summary_cols if c in subset.columns]
+                    summary = subset[available_summary_cols].copy()
                     summary = summary.round(2)
                     f.write(summary.to_markdown(index=False))
                     f.write("\n\n")
@@ -127,12 +131,37 @@ def generate_markdown_tables(df: pd.DataFrame, output_file: Path):
         if 'forward_only' in df.columns and df['forward_only'].nunique() > 1:
             f.write("## Forward-Only vs Forward+Backward Comparison\n\n")
 
-            comparison_cols = ['model_size', 'context_length', 'forward_only', 'mean_time_ms', 'std_time_ms']
+            comparison_cols = ['model_size', 'context_length', 'num_warmups', 'forward_only', 'mean_time_ms', 'std_time_ms']
             available_comp_cols = [c for c in comparison_cols if c in df.columns]
             comp_df = df[available_comp_cols].copy()
             comp_df = comp_df.round(2)
             f.write(comp_df.to_markdown(index=False))
             f.write("\n\n")
+
+        # Comparison by num_warmups (if multiple values present)
+        if 'num_warmups' in df.columns and df['num_warmups'].nunique() > 1:
+            f.write("## Effect of Number of Warmup Runs\n\n")
+
+            warmup_cols = ['model_size', 'context_length', 'num_warmups', 'mean_time_ms', 'std_time_ms']
+            available_warmup_cols = [c for c in warmup_cols if c in df.columns]
+            warmup_df = df[available_warmup_cols].copy()
+            warmup_df = warmup_df.sort_values(['model_size', 'context_length', 'num_warmups'])
+            warmup_df = warmup_df.round(2)
+            f.write(warmup_df.to_markdown(index=False))
+            f.write("\n\n")
+
+            # Pivot table for easier comparison
+            if all(col in df.columns for col in ['model_size', 'num_warmups', 'mean_time_ms']):
+                f.write("### Mean Time by Warmup Count\n\n")
+                pivot = df.pivot_table(
+                    index='model_size',
+                    columns='num_warmups',
+                    values='mean_time_ms',
+                    aggfunc='mean'
+                )
+                pivot = pivot.round(2)
+                f.write(pivot.to_markdown())
+                f.write("\n\n")
 
         # Summary statistics
         f.write("## Summary Statistics\n\n")

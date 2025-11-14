@@ -10,6 +10,7 @@ import numpy as np
 import numpy.typing as npt
 import argparse
 import json
+import torch.cuda.nvtx as nvtx
 
 def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_layers: int,
               num_heads: int, batch_size: int, num_steps: int, dataset: npt.NDArray,
@@ -19,6 +20,9 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
     model = models.BasicsTransformerLM(vocab, context_length, d_model, num_layers, num_heads, d_ff, rope_theta).to(device)
     # Define an input (random)
     x, y  = get_batch(dataset, batch_size, context_length, str(device))
+
+    print(f"Model device: {next(model.parameters()).device}")
+    print(f"Data device: {x.device}")
 
     if forward_only:
         def run():
@@ -31,10 +35,12 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
             # Run the model `num_steps` times (forward + backward)
             for _ in range(num_steps):
                 # Forward
-                logits = model(x)
-                loss = cross_entropy(logits, y)
-                # Backward
-                loss.backward()
+                with nvtx.range("Forward pass"):
+                    logits = model(x)
+                with nvtx.range("Back pass"):
+                    loss = cross_entropy(logits, y)
+                    # Backward
+                    loss.backward()
                 # Clear gradients to avoid memory accumulation
                 model.zero_grad()
     return run
@@ -54,9 +60,10 @@ def benchmark(description: str, run: Callable, num_warmups: int = 1, num_trials:
 
     for _ in range(num_trials):  # Do it multiple times to capture variance
         start_time = timer()
-        run()  # Actually perform computation
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()  # Wait for CUDA threads to finish (important!)
+        with nvtx.range("full run"):
+            run()  # Actually perform computation
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()  # Wait for CUDA threads to finish (important!)
         end_time = timer()
         times.append((end_time - start_time) * 1000)  # Convert to milliseconds
 

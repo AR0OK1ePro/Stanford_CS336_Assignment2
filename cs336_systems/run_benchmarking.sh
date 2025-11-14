@@ -1,14 +1,14 @@
-uv run python cs336_systems/benchmarking_script.py \
+uv run nsys profile -o result --pytorch python cs336_systems/benchmarking_script.py \
     --model_size 'small' \
     --vocab 10000 \
-    --context_length 128 \
-    --d_model 64 \
-    --d_ff 256 \
-    --num_layers 6 \
-    --num_heads 2 \
+    --context_length 256 \
+    --d_model 768 \
+    --d_ff 3072 \
+    --num_layers 12 \
+    --num_heads 12 \
     --batch_size 4 \
     --num_steps 1 \
-    --num_warmups 3 \
-    --num_trials 5 \
-    --data_path ../assignment1-basics/data/TinyStoriesV2-GPT4-train.npy \
+    --num_warmups 5 \
+    --num_trials 10 \
+    --data_path ../TinyStoriesV2-GPT4-train.npy \
     --output ./results/benchmark_results.json
