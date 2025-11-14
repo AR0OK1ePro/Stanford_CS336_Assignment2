@@ -1,4 +1,7 @@
-uv run nsys profile --trace=cuda,osrt,nvtx,python --pytorch=autograd-nvtx -o result python cs336_systems/benchmarking_script.py \
+uv run nsys profile --trace=cuda,osrt,nvtx \
+    --pytorch=autograd-nvtx -o result \
+    --python-backtrace=cuda \ 
+    python cs336_systems/benchmarking_script.py \
     --model_size 'small' \
     --vocab 10000 \
     --context_length 256 \
