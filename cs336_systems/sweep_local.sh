@@ -80,7 +80,7 @@ for model_size in "${MODEL_SIZES[@]}"; do
             nsys_file="$NSYS_DIR/bench_${model_size}_ctx${context_length}_fwd_warmup${NUM_WARMUPS}"
 
             # uv run python cs336_systems/benchmarking_script.py \
-            uv run nsys profile --trace=cuda,osrt,nvtx --pytorch=autograd-nvtx --python-backtrace=cuda -o "$nsys_file" python cs336_systems/benchmarking_script.py \
+            uv run nsys profile --trace=cuda,osrt,nvtx --pytorch=autograd-nvtx --python-backtrace=cuda --force-overwrite true -o "$nsys_file" python cs336_systems/benchmarking_script.py \
                 --model_size "$model_size" \
                 --vocab "$VOCAB" \
                 --context_length "$context_length" \
@@ -112,10 +112,10 @@ for model_size in "${MODEL_SIZES[@]}"; do
             echo "----------------------------------------"
 
             output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_bwd_warmup${NUM_WARMUPS}.json"
-            nsys_file="$NSYS_DIR/bench_${model_size}_ctx${context_length}_fwd_warmup${NUM_WARMUPS}"
+            nsys_file="$NSYS_DIR/bench_${model_size}_ctx${context_length}_fwd_bwd_warmup${NUM_WARMUPS}"
 
             # uv run python cs336_systems/benchmarking_script.py \
-            uv run nsys profile --trace=cuda,osrt,nvtx --pytorch=autograd-nvtx --python-backtrace=cuda -o "$nsys_file" python cs336_systems/benchmarking_script.py \
+            uv run nsys profile --trace=cuda,osrt,nvtx --pytorch=autograd-nvtx --python-backtrace=cuda --force-overwrite true -o "$nsys_file" python cs336_systems/benchmarking_script.py \
                 --model_size "$model_size" \
                 --vocab "$VOCAB" \
                 --context_length "$context_length" \

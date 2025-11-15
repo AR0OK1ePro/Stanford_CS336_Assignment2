@@ -49,7 +49,7 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
                 with nvtx.range("Optimizer step"):
                     optimizer.step()
                     # Clear gradients to avoid memory accumulation
-                    model.zero_grad()
+                    optimizer.zero_grad()
     return run
 
 def benchmark(description: str, run: Callable, num_warmups: int = 1, num_trials: int = 3):
