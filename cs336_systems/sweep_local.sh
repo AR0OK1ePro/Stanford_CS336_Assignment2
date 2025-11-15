@@ -44,6 +44,7 @@ echo "=========================================="
 echo "Starting Benchmark Sweep"
 echo "=========================================="
 echo "Results will be saved to: $RESULTS_DIR"
+echo "Nsys files will be saved to: $NSYS_DIR"
 echo ""
 
 # Define sweeps
