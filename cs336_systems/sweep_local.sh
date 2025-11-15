@@ -15,7 +15,7 @@ NUM_STEPS=1
 BATCH_SIZE=4
 
 # Run modes - set to 1 to enable
-RUN_FORWARD_ONLY=1      # Run forward-only benchmarks
+RUN_FORWARD_ONLY=0      # Run forward-only benchmarks
 RUN_FORWARD_BACKWARD=1  # Run forward+backward benchmarks
 
 # Function to get model config
@@ -49,7 +49,7 @@ echo ""
 
 # Define sweeps
 MODEL_SIZES=(small medium large xl 2.7B)
-CONTEXT_LENGTHS=(128 256 512 1024)
+CONTEXT_LENGTHS=(128 256 512)
 
 # Calculate total runs based on enabled modes
 num_modes=0
