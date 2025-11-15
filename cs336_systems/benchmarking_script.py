@@ -1,5 +1,6 @@
 import os
-import cs336_basics.model as models
+import cs336_basics.model_nvtx as models
+import cs336_basics.optimizer as optimizers
 import torch
 from typing import Callable
 import timeit
@@ -18,6 +19,7 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
     # Define a model (with random weights)
     device = get_device()
     model = models.BasicsTransformerLM(vocab, context_length, d_model, num_layers, num_heads, d_ff, rope_theta).to(device)
+    optimizer = optimizers.AdamW(model.parameters)
     # Define an input (random)
     x, y  = get_batch(dataset, batch_size, context_length, str(device))
 
@@ -28,8 +30,10 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
         def run():
             # Run the model `num_steps` times (forward only)
             for _ in range(num_steps):
-                logits = model(x)
-                loss = cross_entropy(logits, y)
+                with nvtx.range("Forward pass"):
+                    logits = model(x)
+                with nvtx.range("Computing loss"):
+                    loss = cross_entropy(logits, y)
     else:
         def run():
             # Run the model `num_steps` times (forward + backward)
@@ -37,12 +41,15 @@ def run_model(vocab: int, context_length: int, d_model: int, d_ff: int, num_laye
                 # Forward
                 with nvtx.range("Forward pass"):
                     logits = model(x)
-                with nvtx.range("Back pass"):
+                with nvtx.range("Computing loss"):
                     loss = cross_entropy(logits, y)
+                with nvtx.range("Backward pass"):
                     # Backward
                     loss.backward()
-                # Clear gradients to avoid memory accumulation
-                model.zero_grad()
+                with nvtx.range("Optimizer step"):
+                    optimizer.step()
+                    # Clear gradients to avoid memory accumulation
+                    model.zero_grad()
     return run
 
 def benchmark(description: str, run: Callable, num_warmups: int = 1, num_trials: int = 3):

@@ -5,11 +5,12 @@
 set -e  # Exit on error
 
 # Configuration
-DATA_PATH="../assignment1-basics/data/TinyStoriesV2-GPT4-train.npy"
+DATA_PATH="../TinyStoriesV2-GPT4-train.npy"
 RESULTS_DIR="results"
+NSYS_DIR="nsys"
 VOCAB=10000
-NUM_WARMUPS=5
-NUM_TRIALS=10
+NUM_WARMUPS=1
+NUM_TRIALS=5
 NUM_STEPS=1
 BATCH_SIZE=4
 
@@ -37,6 +38,7 @@ get_model_config() {
 
 # Create results directory
 mkdir -p "$RESULTS_DIR"
+mkdir -p "$NSYS_DIR"
 
 echo "=========================================="
 echo "Starting Benchmark Sweep"
@@ -46,7 +48,7 @@ echo ""
 
 # Define sweeps
 MODEL_SIZES=(small medium large xl 2.7B)
-CONTEXT_LENGTHS=(128 256)
+CONTEXT_LENGTHS=(128 256 512 1024)
 
 # Calculate total runs based on enabled modes
 num_modes=0
@@ -74,8 +76,10 @@ for model_size in "${MODEL_SIZES[@]}"; do
             echo "----------------------------------------"
 
             output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_warmup${NUM_WARMUPS}.json"
+            nsys_file="$NSYS_DIR/bench_${model_size}_ctx${context_length}_fwd_warmup${NUM_WARMUPS}"
 
-            uv run python cs336_systems/benchmarking_script.py \
+            # uv run python cs336_systems/benchmarking_script.py \
+            uv run nsys profile --trace=cuda,osrt,nvtx --pytorch=autograd-nvtx --python-backtrace=cuda -o "$nsys_file" --python-backtrace=cuda python cs336_systems/benchmarking_script.py \
                 --model_size "$model_size" \
                 --vocab "$VOCAB" \
                 --context_length "$context_length" \
@@ -107,8 +111,10 @@ for model_size in "${MODEL_SIZES[@]}"; do
             echo "----------------------------------------"
 
             output_file="$RESULTS_DIR/bench_${model_size}_ctx${context_length}_fwd_bwd_warmup${NUM_WARMUPS}.json"
+            nsys_file="$NSYS_DIR/bench_${model_size}_ctx${context_length}_fwd_warmup${NUM_WARMUPS}"
 
-            uv run python cs336_systems/benchmarking_script.py \
+            # uv run python cs336_systems/benchmarking_script.py \
+            uv run nsys profile --trace=cuda,osrt,nvtx --pytorch=autograd-nvtx --python-backtrace=cuda -o "$nsys_file" --python-backtrace=cuda python cs336_systems/benchmarking_script.py \
                 --model_size "$model_size" \
                 --vocab "$VOCAB" \
                 --context_length "$context_length" \
